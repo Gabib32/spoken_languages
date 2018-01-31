@@ -2,8 +2,8 @@ import io
 import os
 import pyaudio
 import wave
-from gtts import gTTS
-from playsound import playsound
+import pyttsx
+import json
 
 # Imports the Google Cloud client library
 from google.cloud import speech
@@ -12,18 +12,19 @@ from google.cloud.speech import types
     
 def pc_speak(output):
     print("speaking: ", output)
-    tts = gTTS(text=output, lang='en')
-    tts.save("audio.mp3")
-    playsound("audio.mp3", block = True)
+    engine = pyttsx.init()
+    engine.say(output)
+    engine.runAndWait()
 
-
-def record_user(p, filename):
+def record_user(filename):
     CHUNK = 1024
     FORMAT = pyaudio.paInt16
     CHANNELS = 1
     RATE = 16000
     RECORD_SECONDS = 5
     WAVE_OUTPUT_FILENAME = filename
+
+    p = pyaudio.PyAudio()
 
     stream = p.open(format=FORMAT,
                     channels=CHANNELS,
@@ -77,17 +78,30 @@ def transcribe_audio(filename):
     response = client.recognize(config, audio)
 
     for result in response.results:
-        print('Transcript: {}'.format(result.alternatives[0].transcript))
-
+        print(result)
+        return result.alternatives[0].transcript
 
 
 def main():
-    p = pyaudio.PyAudio()
     fn = 'output.wav'
 
-    pc_speak("What is your temperature?")
-    record_user(p, fn)
-    transcribe_audio(fn)
+    data = {
+        'Temperature': '',
+        'Blood pressure': '',
+        'Pulse': '',
+        'Pain level': ''
+    }
+
+    for key, _ in data.items():
+        pc_speak("What is your {}".format(key))
+        record_user(fn)
+        value = transcribe_audio(fn)
+        data[key] = value
+        pc_speak("Okay, You said your {} is {}".format(key, value))
+
+    print(data)
+    with open('user_data', 'w') as pd_f:
+        pd_f.write(json.dumps(data))
 
 if __name__ == "__main__":
     main()
